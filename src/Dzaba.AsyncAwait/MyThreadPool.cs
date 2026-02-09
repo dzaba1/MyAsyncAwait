@@ -4,7 +4,7 @@ namespace Dzaba.AsyncAwait;
 
 public static class MyThreadPool
 {
-    private static readonly BlockingCollection<QueuedWorkItem> workItems = new BlockingCollection<QueuedWorkItem>();
+    private static readonly BlockingCollection<ActionWithContext> workItems = new BlockingCollection<ActionWithContext>();
     private static readonly Thread[] threads;
 
     static MyThreadPool()
@@ -27,14 +27,7 @@ public static class MyThreadPool
         while (true)
         {
             var workItem = workItems.Take();
-            if (workItem.Context == null)
-            {
-                workItem.Action();
-            }
-            else
-            {
-                ExecutionContext.Run(workItem.Context, s => ((QueuedWorkItem)s).Action.Invoke(), workItem);
-            }
+            workItem.Invoke();
         }
     }
 
@@ -42,13 +35,6 @@ public static class MyThreadPool
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        workItems.Add(new QueuedWorkItem(action, ExecutionContext.Capture()));
-    }
-
-    internal class QueuedWorkItem(Action action, ExecutionContext context)
-    {
-        public Action Action { get; } = action;
-
-        public ExecutionContext Context { get; } = context;
+        workItems.Add(ActionWithContext.Capture(action));
     }
 }
