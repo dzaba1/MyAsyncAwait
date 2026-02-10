@@ -1,5 +1,6 @@
 ﻿using FluentAssertions;
 using NUnit.Framework;
+using System.Diagnostics.Metrics;
 
 namespace Dzaba.AsyncAwait.Tests
 {
@@ -59,6 +60,30 @@ namespace Dzaba.AsyncAwait.Tests
                 .Wait();
 
             counter.Should().Be(4);
+        }
+
+        private static IEnumerable<Task> DelayAndIncrement(int delayCount, RefInt value)
+        {
+            for (int i = 0; i < delayCount; i++)
+            {
+                yield return Task.Delay(TimeSpan.FromSeconds(1));
+                value.Value++;
+            }
+        }
+
+        [Test]
+        public void Iterate_WhenEnumerableTasks_ThenWait()
+        {
+            var counter = new RefInt();
+            var delays = DelayAndIncrement(4, counter);
+            Task.Iterate(delays).Wait();
+
+            counter.Value.Should().Be(4);
+        }
+
+        private class RefInt
+        {
+            public int Value { get; set; }
         }
     }
 }

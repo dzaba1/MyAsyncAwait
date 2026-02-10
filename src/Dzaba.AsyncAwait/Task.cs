@@ -1,4 +1,5 @@
 ﻿using System.Runtime.ExceptionServices;
+using System.Threading.Tasks;
 
 namespace Dzaba.AsyncAwait;
 
@@ -176,6 +177,36 @@ public class Task : ITask
 
         var timer = new Timer(_ => task.Complete(null));
         timer.Change(delay, Timeout.InfiniteTimeSpan);
+
+        return task;
+    }
+
+    private static void MoveNext(IEnumerator<ITask> enumerator, Task task)
+    {
+        try
+        {
+            if (enumerator.MoveNext())
+            {
+                var next = enumerator.Current;
+                next.ContinueWith(() => MoveNext(enumerator, task));
+            }
+            else
+            {
+                task.Complete(null);
+            }
+        }
+        catch (Exception ex)
+        {
+            task.Complete(ex);
+        }
+    }
+
+    public static Task Iterate(IEnumerable<ITask> tasks)
+    {
+        var task = new Task();
+
+        var enumerator = tasks.GetEnumerator();
+        MoveNext(enumerator, task);
 
         return task;
     }
