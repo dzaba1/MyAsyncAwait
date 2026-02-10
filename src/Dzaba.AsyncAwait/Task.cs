@@ -8,6 +8,7 @@ public interface ITask
     Exception Exception { get; }
     void Wait();
     ITask ContinueWith(Action action);
+    ITask ContinueWith(Func<ITask> action);
 }
 
 public class Task : ITask
@@ -39,13 +40,8 @@ public class Task : ITask
         }
     }
 
-    public ITask ContinueWith(Action action)
+    private void QueueContinueWith(Action callback)
     {
-        ArgumentNullException.ThrowIfNull(action);
-
-        var task = new Task();
-        var callback = () => ActionCallback(task, action);
-
         lock (syncLock)
         {
             if (isCompleted)
@@ -57,6 +53,49 @@ public class Task : ITask
                 continuation = ActionWithContext.Capture(callback);
             }
         }
+    }
+
+    public ITask ContinueWith(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        var task = new Task();
+        var callback = () => ActionCallback(task, action);
+
+        QueueContinueWith(callback);
+
+        return task;
+    }
+
+    public ITask ContinueWith(Func<ITask> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        var task = new Task();
+        var callback = () =>
+        {
+            try
+            {
+                var next = action();
+                next.ContinueWith(() =>
+                {
+                    if (next.Exception != null)
+                    {
+                        task.Complete(next.Exception);
+                    }
+                    else
+                    {
+                        task.Complete(null);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                task.Complete(ex);
+            }
+        };
+
+        QueueContinueWith(callback);
 
         return task;
     }

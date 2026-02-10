@@ -34,5 +34,31 @@ namespace Dzaba.AsyncAwait.Tests
 
             finished.Should().BeTrue();
         }
+
+        [Test]
+        public void ContinueWith_WhenMultipleInvocations_ThenICanWait()
+        {
+            var counter = 0;
+            Task.Delay(TimeSpan.FromSeconds(1))
+                .ContinueWith(() =>
+                {
+                    counter++;
+                    return Task.Delay(TimeSpan.FromSeconds(1)).ContinueWith(() =>
+                    {
+                        counter++;
+                        return Task.Delay(TimeSpan.FromSeconds(1)).ContinueWith(() =>
+                        {
+                            counter++;
+                            return Task.Delay(TimeSpan.FromSeconds(1)).ContinueWith(() =>
+                            {
+                                counter++;
+                            });
+                        });
+                    });
+                })
+                .Wait();
+
+            counter.Should().Be(4);
+        }
     }
 }
