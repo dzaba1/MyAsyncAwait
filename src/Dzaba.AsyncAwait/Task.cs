@@ -7,7 +7,7 @@ public interface ITask
     bool IsCompleted { get; }
     Exception Exception { get; }
     void Wait();
-    void ContinueWith(Action action);
+    ITask ContinueWith(Action action);
 }
 
 public class Task : ITask
@@ -39,21 +39,26 @@ public class Task : ITask
         }
     }
 
-    public void ContinueWith(Action action)
+    public ITask ContinueWith(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);
+
+        var task = new Task();
+        var callback = () => ActionCallback(task, action);
 
         lock (syncLock)
         {
             if (isCompleted)
             {
-                MyThreadPool.QueueUserWorkItem(action);
+                MyThreadPool.QueueUserWorkItem(callback);
             }
             else
             {
-                continuation = ActionWithContext.Capture(action);
+                continuation = ActionWithContext.Capture(callback);
             }
         }
+
+        return task;
     }
 
     public void Wait()
@@ -102,24 +107,36 @@ public class Task : ITask
         continuation.Invoke();
     }
 
+    private static void ActionCallback(Task task, Action action)
+    {
+        try
+        {
+            action();
+            task.Complete(null);
+        }
+        catch (Exception ex)
+        {
+            task.Complete(ex);
+        }
+    }
+
     public static Task Run(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);
 
         var task = new Task();
 
-        MyThreadPool.QueueUserWorkItem(() =>
-        {
-            try
-            {
-                action();
-                task.Complete(null);
-            }
-            catch (Exception ex)
-            {
-                task.Complete(ex);
-            }
-        });
+        MyThreadPool.QueueUserWorkItem(() => ActionCallback(task, action));
+
+        return task;
+    }
+
+    public static Task Delay(TimeSpan delay)
+    {
+        var task = new Task();
+
+        var timer = new Timer(_ => task.Complete(null));
+        timer.Change(delay, Timeout.InfiniteTimeSpan);
 
         return task;
     }

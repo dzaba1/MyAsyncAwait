@@ -23,5 +23,16 @@ namespace Dzaba.AsyncAwait.Tests
 
             this.Invoking(_ => task.Wait()).Should().Throw<Exception>();
         }
+
+        [Test]
+        public void ContinueWith_WhenDelay_ThenICanWait()
+        {
+            var finished = false;
+            Task.Delay(TimeSpan.FromSeconds(1))
+                .ContinueWith(() => finished = true)
+                .Wait();
+
+            finished.Should().BeTrue();
+        }
     }
 }
