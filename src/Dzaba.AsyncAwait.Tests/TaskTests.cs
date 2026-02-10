@@ -1,17 +1,16 @@
 ﻿using FluentAssertions;
 using NUnit.Framework;
-using System.Diagnostics.Metrics;
 
 namespace Dzaba.AsyncAwait.Tests
 {
     [TestFixture]
-    public class TaskTests
+    public class MyTaskTests
     {
         [Test]
         public void Wait_WhenCalled_ThenItWaits()
         {
             var finished = false;
-            var task = Task.Run(() => { finished = true; });
+            var task = MyTask.Run(() => { finished = true; });
             task.Wait();
 
             finished.Should().BeTrue();
@@ -20,7 +19,7 @@ namespace Dzaba.AsyncAwait.Tests
         [Test]
         public void Wait_WhenError_ThenException()
         {
-            var task = Task.Run(() => throw new Exception("Test"));
+            var task = MyTask.Run(() => throw new Exception("Test"));
 
             this.Invoking(_ => task.Wait()).Should().Throw<Exception>();
         }
@@ -29,7 +28,7 @@ namespace Dzaba.AsyncAwait.Tests
         public void ContinueWith_WhenDelay_ThenICanWait()
         {
             var finished = false;
-            Task.Delay(TimeSpan.FromSeconds(1))
+            MyTask.Delay(TimeSpan.FromSeconds(1))
                 .ContinueWith(() => finished = true)
                 .Wait();
 
@@ -40,17 +39,17 @@ namespace Dzaba.AsyncAwait.Tests
         public void ContinueWith_WhenMultipleInvocations_ThenICanWait()
         {
             var counter = 0;
-            Task.Delay(TimeSpan.FromSeconds(1))
+            MyTask.Delay(TimeSpan.FromSeconds(1))
                 .ContinueWith(() =>
                 {
                     counter++;
-                    return Task.Delay(TimeSpan.FromSeconds(1)).ContinueWith(() =>
+                    return MyTask.Delay(TimeSpan.FromSeconds(1)).ContinueWith(() =>
                     {
                         counter++;
-                        return Task.Delay(TimeSpan.FromSeconds(1)).ContinueWith(() =>
+                        return MyTask.Delay(TimeSpan.FromSeconds(1)).ContinueWith(() =>
                         {
                             counter++;
-                            return Task.Delay(TimeSpan.FromSeconds(1)).ContinueWith(() =>
+                            return MyTask.Delay(TimeSpan.FromSeconds(1)).ContinueWith(() =>
                             {
                                 counter++;
                             });
@@ -62,11 +61,11 @@ namespace Dzaba.AsyncAwait.Tests
             counter.Should().Be(4);
         }
 
-        private static IEnumerable<Task> DelayAndIncrement(int delayCount, RefInt value)
+        private static IEnumerable<MyTask> DelayAndIncrement(int delayCount, RefInt value)
         {
             for (int i = 0; i < delayCount; i++)
             {
-                yield return Task.Delay(TimeSpan.FromSeconds(1));
+                yield return MyTask.Delay(TimeSpan.FromSeconds(1));
                 value.Value++;
             }
         }
@@ -76,7 +75,34 @@ namespace Dzaba.AsyncAwait.Tests
         {
             var counter = new RefInt();
             var delays = DelayAndIncrement(4, counter);
-            Task.Iterate(delays).Wait();
+            MyTask.Iterate(delays).Wait();
+
+            counter.Value.Should().Be(4);
+        }
+
+        private static async Task DelayAndIncrementAsync(int delayCount, RefInt value)
+        {
+            for (int i = 0; i < delayCount; i++)
+            {
+                await MyTask.Delay(TimeSpan.FromSeconds(1));
+                value.Value++;
+            }
+        }
+
+        [Test]
+        public void AsyncAwait_WhenTask_ThenWait()
+        {
+            var counter = new RefInt();
+            DelayAndIncrementAsync(4, counter).Wait();
+
+            counter.Value.Should().Be(4);
+        }
+
+        [Test]
+        public async Task AsyncAwait_WhenNormalAsync_ThenAwait()
+        {
+            var counter = new RefInt();
+            await DelayAndIncrementAsync(4, counter);
 
             counter.Value.Should().Be(4);
         }

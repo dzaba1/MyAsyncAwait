@@ -1,18 +1,18 @@
 ﻿using System.Runtime.ExceptionServices;
-using System.Threading.Tasks;
 
 namespace Dzaba.AsyncAwait;
 
-public interface ITask
+public interface IMyTask
 {
     bool IsCompleted { get; }
     Exception Exception { get; }
     void Wait();
-    ITask ContinueWith(Action action);
-    ITask ContinueWith(Func<ITask> action);
+    IMyTask ContinueWith(Action action);
+    IMyTask ContinueWith(Func<IMyTask> action);
+    TaskAwaiter GetAwaiter();
 }
 
-public class Task : ITask
+public class MyTask : IMyTask
 {
     private bool isCompleted = false;
     private Exception exception;
@@ -56,11 +56,11 @@ public class Task : ITask
         }
     }
 
-    public ITask ContinueWith(Action action)
+    public IMyTask ContinueWith(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        var task = new Task();
+        var task = new MyTask();
         var callback = () => ActionCallback(task, action);
 
         QueueContinueWith(callback);
@@ -68,11 +68,11 @@ public class Task : ITask
         return task;
     }
 
-    public ITask ContinueWith(Func<ITask> action)
+    public IMyTask ContinueWith(Func<IMyTask> action)
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        var task = new Task();
+        var task = new MyTask();
         var callback = () =>
         {
             try
@@ -142,12 +142,17 @@ public class Task : ITask
         }
     }
 
+    public TaskAwaiter GetAwaiter()
+    {
+        return new TaskAwaiter(this);
+    }
+
     private void ContinationMethod()
     {
         continuation.Invoke();
     }
 
-    private static void ActionCallback(Task task, Action action)
+    private static void ActionCallback(MyTask task, Action action)
     {
         try
         {
@@ -160,20 +165,20 @@ public class Task : ITask
         }
     }
 
-    public static Task Run(Action action)
+    public static MyTask Run(Action action)
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        var task = new Task();
+        var task = new MyTask();
 
         MyThreadPool.QueueUserWorkItem(() => ActionCallback(task, action));
 
         return task;
     }
 
-    public static Task Delay(TimeSpan delay)
+    public static MyTask Delay(TimeSpan delay)
     {
-        var task = new Task();
+        var task = new MyTask();
 
         var timer = new Timer(_ => task.Complete(null));
         timer.Change(delay, Timeout.InfiniteTimeSpan);
@@ -181,7 +186,7 @@ public class Task : ITask
         return task;
     }
 
-    private static void MoveNext(IEnumerator<ITask> enumerator, Task task)
+    private static void MoveNext(IEnumerator<IMyTask> enumerator, MyTask task)
     {
         try
         {
@@ -201,9 +206,9 @@ public class Task : ITask
         }
     }
 
-    public static Task Iterate(IEnumerable<ITask> tasks)
+    public static MyTask Iterate(IEnumerable<IMyTask> tasks)
     {
-        var task = new Task();
+        var task = new MyTask();
 
         var enumerator = tasks.GetEnumerator();
         MoveNext(enumerator, task);
