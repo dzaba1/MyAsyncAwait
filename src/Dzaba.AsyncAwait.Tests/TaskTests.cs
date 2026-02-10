@@ -107,6 +107,15 @@ namespace Dzaba.AsyncAwait.Tests
             counter.Value.Should().Be(4);
         }
 
+        [Test]
+        public async MyTask AsyncAwait_WhenAsync_ThenAwait()
+        {
+            var counter = new RefInt();
+            await DelayAndIncrementAsync(4, counter);
+
+            counter.Value.Should().Be(4);
+        }
+
         private class RefInt
         {
             public int Value { get; set; }

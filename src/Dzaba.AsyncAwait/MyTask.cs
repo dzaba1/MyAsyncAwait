@@ -1,4 +1,5 @@
-﻿using System.Runtime.ExceptionServices;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 
 namespace Dzaba.AsyncAwait;
 
@@ -12,6 +13,7 @@ public interface IMyTask
     TaskAwaiter GetAwaiter();
 }
 
+[AsyncMethodBuilder(typeof(MyTaskAsyncMethodBuilder))]
 public class MyTask : IMyTask
 {
     private bool isCompleted = false;
@@ -123,7 +125,7 @@ public class MyTask : IMyTask
         }
     }
 
-    private void Complete(Exception ex)
+    internal void Complete(Exception ex)
     {
         lock (syncLock)
         {
